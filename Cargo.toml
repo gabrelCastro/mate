@@ -1,0 +1,9 @@
+[package]
+name = "mate"
+version = "0.1.0"
+edition = "2024"
+description = "Um SGBD relacional didático, escrito em Rust para ser lido e estudado."
+
+# Nenhuma dependência externa: todo o código do banco está neste repositório,
+# para que você possa ler cada linha que roda.
+[dependencies]
