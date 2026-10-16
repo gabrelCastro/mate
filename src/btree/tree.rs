@@ -15,9 +15,10 @@
 //! # Inserção e *split*
 //!
 //! A entrada é colocada na folha certa. Se a folha não couber mais na
-//! página, ela se **divide** em duas: metade das entradas vai para uma
-//! página nova, e a primeira entrada da metade direita sobe como separadora
-//! para o pai. Se o pai também estourar, ele se divide, e assim por diante.
+//! página, ela se **divide** em duas: a metade direita (metade dos *bytes*,
+//! veja `split_point`) vai para uma página nova, e a primeira entrada da
+//! metade direita sobe como separadora para o pai. Se o pai também estourar,
+//! ele se divide, e assim por diante.
 //!
 //! ```text
 //!   antes:            [ 10 20 30 40 ]   ← folha cheia, inserir 25
@@ -141,7 +142,7 @@ impl BTree {
         // Split: a metade direita vai para uma página nova, que entra na
         // lista encadeada de folhas logo depois desta.
         let right_id = pager.allocate()?;
-        let mid = leaf.entries.len() / 2;
+        let mid = split_point(&leaf.entries);
         let right = LeafNode {
             entries: leaf.entries.split_off(mid),
             next: leaf.next,
@@ -171,7 +172,7 @@ impl BTree {
         //
         //   [ k0 k1 k2 k3 k4 ]   →   sobe k2,  esquerda [k0 k1],  direita [k3 k4]
         let right_id = pager.allocate()?;
-        let mid = node.keys.len() / 2;
+        let mid = split_point(&node.keys);
         let right_keys = node.keys.split_off(mid + 1);
         let separator = node.keys.pop().expect("mid existe");
         let right_children = node.children.split_off(mid + 1);
@@ -271,6 +272,30 @@ impl BTree {
         }
         Ok(out)
     }
+}
+
+/// Onde dividir um nó cheio: no ponto em que a esquerda acumula metade dos
+/// **bytes**, e não metade das entradas.
+///
+/// As chaves têm tamanhos variados (um texto pode ter 3 ou 1000 bytes).
+/// Dividir pela quantidade pode deixar todas as chaves grandes numa metade,
+/// e essa metade continuaria sem caber na página. Dividindo pelos bytes,
+/// cada lado fica com no máximo "metade do total + uma entrada", e isso
+/// sempre cabe porque `MAX_KEY_SIZE` é bem menor que a página.
+///
+/// O resultado fica entre 1 e `len - 1`, então os dois lados nunca ficam
+/// vazios.
+fn split_point(entries: &[IndexEntry]) -> usize {
+    let sizes: Vec<usize> = entries.iter().map(IndexEntry::encoded_len).collect();
+    let total: usize = sizes.iter().sum();
+    let mut left = 0;
+    for (i, size) in sizes.iter().enumerate() {
+        if left + size > total / 2 {
+            return i.clamp(1, entries.len() - 1);
+        }
+        left += size;
+    }
+    entries.len() - 1
 }
 
 /// Em qual filho de `node` a entrada `entry` está (ou deveria estar)?
@@ -380,6 +405,48 @@ mod tests {
             count += 1;
         }
         assert_eq!(count, 300);
+    }
+
+    /// Regressão: chaves de tamanhos muito diferentes. Dividir o nó pela
+    /// *quantidade* de entradas podia deixar uma metade com todas as chaves
+    /// grandes, ainda maior que a página (e o banco entrava em pânico).
+    #[test]
+    fn chaves_de_tamanhos_muito_diferentes() {
+        let dir = TempDir::new("btree-sizes");
+        let mut pager = Pager::open(&dir.path("t.db")).unwrap();
+        let tree = BTree::create(&mut pager).unwrap();
+        // Gerador congruencial simples, só para variar os tamanhos.
+        let mut x: u64 = 42;
+        let mut keys = Vec::new();
+        for slot in 0..3000u16 {
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let prefix = (x >> 33) % 5000;
+            let len = if (x >> 20) % 100 < 5 {
+                990
+            } else {
+                (x >> 40) as usize % 30
+            };
+            let key = Value::Text(format!("{prefix:06}{}", "k".repeat(len)));
+            let rid = RecordId { page_id: 1, slot };
+            tree.insert(
+                &mut pager,
+                IndexEntry {
+                    key: key.clone(),
+                    rid,
+                },
+            )
+            .unwrap();
+            keys.push(IndexEntry { key, rid });
+        }
+        keys.sort();
+        let mut cursor = tree.seek(&mut pager, Bound::Unbounded).unwrap();
+        let mut found = Vec::new();
+        while let Some(e) = cursor.next(&mut pager).unwrap() {
+            found.push(e);
+        }
+        assert_eq!(found, keys);
     }
 
     #[test]

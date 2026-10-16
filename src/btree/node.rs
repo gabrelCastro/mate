@@ -61,6 +61,15 @@ pub struct IndexEntry {
     pub rid: RecordId,
 }
 
+impl IndexEntry {
+    /// Quantos bytes a entrada ocupa serializada (valor + RecordId).
+    pub fn encoded_len(&self) -> usize {
+        let mut buf = Vec::new();
+        encode_entry(self, &mut buf);
+        buf.len()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LeafNode {
     /// Entradas em ordem crescente.
