@@ -2,8 +2,15 @@
 name = "mate"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.89"
 description = "Um SGBD relacional didático, escrito em Rust para ser lido e estudado."
 
 # Nenhuma dependência externa: todo o código do banco está neste repositório,
 # para que você possa ler cada linha que roda.
 [dependencies]
+
+# Só para os testes: o teste diferencial (tests/diferencial.rs) compara as
+# respostas do Mate com as do SQLite. "bundled" compila o SQLite junto, sem
+# precisar dele instalado no sistema.
+[dev-dependencies]
+rusqlite = { version = "0.32.1", features = ["bundled"] }
