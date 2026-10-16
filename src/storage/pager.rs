@@ -255,6 +255,7 @@ impl Pager {
     pub fn commit_and_crash(mut self) {
         let frames: Vec<(PageId, &Page)> = self.dirty.iter().map(|(id, p)| (*id, p)).collect();
         self.wal.append_transaction(&frames).unwrap();
+        self.disk.release_lock();
         std::mem::forget(self);
     }
 }
@@ -315,6 +316,18 @@ mod tests {
 
         assert_eq!(pager.page_count(), 2);
         assert_eq!(pager.read(id).unwrap().bytes()[100], 7);
+    }
+
+    #[test]
+    fn segundo_processo_recebe_busy() {
+        let dir = TempDir::new("pager-lock");
+        let path = dir.path("t.db");
+        let first = Pager::open(&path).unwrap();
+        // A trava vale por arquivo aberto, então uma segunda abertura no
+        // mesmo processo já simula um segundo processo.
+        assert!(matches!(Pager::open(&path), Err(DbError::Busy(_))));
+        drop(first);
+        assert!(Pager::open(&path).is_ok(), "fechar o banco deve liberar a trava");
     }
 
     #[test]

@@ -26,6 +26,8 @@ pub enum DbError {
     Constraint(String),
     /// Uso incorreto de transações (ex.: COMMIT sem BEGIN).
     Transaction(String),
+    /// O arquivo já está aberto por outro processo (no SQLite, SQLITE_BUSY).
+    Busy(String),
 }
 
 pub type Result<T> = std::result::Result<T, DbError>;
@@ -40,6 +42,7 @@ impl fmt::Display for DbError {
             DbError::Execution(m) => write!(f, "erro de execução: {m}"),
             DbError::Constraint(m) => write!(f, "restrição violada: {m}"),
             DbError::Transaction(m) => write!(f, "erro de transação: {m}"),
+            DbError::Busy(m) => write!(f, "banco ocupado: {m}"),
         }
     }
 }

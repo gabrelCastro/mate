@@ -31,8 +31,9 @@
 //! # Concorrência
 //!
 //! Não há. Um `Database` atende um cliente por vez (é preciso `&mut self`
-//! para executar), e nada impede dois processos de abrirem o mesmo arquivo.
-//! Num banco real, essa é uma das partes mais difíceis: locks, MVCC, níveis
+//! para executar), e só um processo pode abrir o arquivo: os outros
+//! recebem `DbError::Busy` (veja a trava em `storage/disk.rs`). Num banco
+//! real, a concorrência é uma das partes mais difíceis: locks, MVCC, níveis
 //! de isolamento... (veja `docs/exercicios.md`).
 
 use std::path::Path;

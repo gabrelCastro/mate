@@ -3,12 +3,26 @@
 //! É a camada mais baixa do banco e a única que mexe no arquivo `.db`. Ela
 //! não tem cache nem transações e não sabe o que há dentro das páginas.
 //! Só faz "página N → bytes no offset N * PAGE_SIZE".
+//!
+//! # Um processo por vez
+//!
+//! O Mate não coordena acessos simultâneos. Se dois processos abrissem o
+//! mesmo arquivo, cada um teria seu próprio cache e seu próprio WAL na
+//! cabeça, e um sobrescreveria as páginas do outro, corrompendo o banco.
+//! Para impedir isso, ao abrir o arquivo pedimos ao sistema operacional uma
+//! **trava exclusiva** (`flock` no Linux, `LockFileEx` no Windows). Um
+//! segundo processo que tentar abrir recebe [`DbError::Busy`]. A trava some
+//! sozinha quando o arquivo é fechado, inclusive se o processo morrer.
+//!
+//! Bancos que aceitam vários clientes travam pedaços menores: o SQLite trava
+//! faixas de bytes do arquivo, e o Postgres trava linhas e tabelas na
+//! memória compartilhada do servidor.
 
-use std::fs::{File, OpenOptions};
+use std::fs::{File, OpenOptions, TryLockError};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use crate::error::Result;
+use crate::error::{DbError, Result};
 use crate::storage::page::{PAGE_SIZE, Page, PageId};
 
 pub struct DiskManager {
@@ -16,7 +30,8 @@ pub struct DiskManager {
 }
 
 impl DiskManager {
-    /// Abre o arquivo do banco, criando-o se não existir.
+    /// Abre o arquivo do banco, criando-o se não existir, e o trava para uso
+    /// exclusivo deste processo.
     pub fn open(path: &Path) -> Result<DiskManager> {
         let file = OpenOptions::new()
             .read(true)
@@ -24,7 +39,24 @@ impl DiskManager {
             .create(true)
             .truncate(false)
             .open(path)?;
+        match file.try_lock() {
+            Ok(()) => {}
+            Err(TryLockError::WouldBlock) => {
+                return Err(DbError::Busy(format!(
+                    "'{}' já está aberto em outro processo",
+                    path.display()
+                )));
+            }
+            Err(TryLockError::Error(e)) => return Err(e.into()),
+        }
         Ok(DiskManager { file })
+    }
+
+    /// Só para testes que simulam uma queda: libera a trava sem fechar o
+    /// arquivo (um processo que morre de verdade a libera sozinho).
+    #[cfg(test)]
+    pub fn release_lock(&self) {
+        self.file.unlock().unwrap();
     }
 
     /// Quantas páginas cabem no arquivo hoje.
