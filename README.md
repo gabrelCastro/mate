@@ -1,5 +1,7 @@
 # Mate
 
+[![CI](https://github.com/gabrelCastro/mate/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrelCastro/mate/actions/workflows/ci.yml)
+
 Um SGBD relacional **didático**, escrito em Rust para ser **lido**.
 
 > O nome é uma homenagem ao Mate, o guincho enferrujado de *Carros*.
@@ -19,7 +21,7 @@ Comentários e mensagens estão em português.
 ```bash
 cargo run -- meu.db                      # REPL interativo
 cargo run -- meu.db < examples/demo.sql  # executa um script
-cargo test                               # 49 testes
+cargo test                               # 51 testes (inclui o diferencial contra o SQLite)
 cargo doc --open                         # a documentação navegável
 ```
 
@@ -124,6 +126,17 @@ o fluxo inteiro e depois desça.
   quantas páginas foram lidas.
 - **Faça os exercícios** em [`docs/exercicios.md`](docs/exercicios.md).
 
+## Como sabemos que funciona
+
+Além dos testes de cada módulo e dos testes de SQL em `tests/sql.rs`, há um
+**teste diferencial** ([`tests/diferencial.rs`](tests/diferencial.rs)): ele
+gera milhares de consultas e modificações aleatórias, roda cada uma no Mate e
+no SQLite, e exige que os dois deem a mesma resposta. Se discordarem, o teste
+mostra a consulta e a semente para reproduzir. O CI roda tudo a cada push.
+
+O SQLite entra só como dependência **de teste**. O banco em si continua sem
+nenhuma dependência.
+
 ## Simplificações deliberadas
 
 Um banco de produção faz tudo isto de forma mais sofisticada. Aqui, cada
@@ -132,7 +145,7 @@ código explicam como os bancos reais resolvem.
 
 | Aqui | Em bancos reais |
 |------|-----------------|
-| Um cliente por vez, sem locks | locks, MVCC, níveis de isolamento |
+| Um processo por vez (trava no arquivo), sem concorrência | locks finos, MVCC, níveis de isolamento |
 | Transação precisa caber na memória (no-steal) | steal + undo log (ARIES) |
 | WAL com imagens de página inteiras | registros lógicos/físicos menores |
 | Páginas liberadas nunca são reusadas | free list |

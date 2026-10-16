@@ -1,0 +1,49 @@
+# Roda a cada push e pull request. Se qualquer passo falhar, o commit
+# aparece com um X vermelho no GitHub.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Avisos do compilador também quebram o build.
+  RUSTFLAGS: -D warnings
+
+jobs:
+  testes:
+    name: Formatação, lint, testes e docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # Guarda o target/ entre execuções (o SQLite do teste diferencial
+      # demora para compilar).
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Formatação (cargo fmt)
+        run: cargo fmt --check
+
+      - name: Lint (cargo clippy)
+        run: cargo clippy --all-targets
+
+      - name: Testes
+        run: cargo test
+
+      # Mais consultas aleatórias do que no teste local, compilado em modo
+      # release para ser rápido.
+      - name: Teste diferencial contra o SQLite (reforçado)
+        run: cargo test --release --test diferencial
+        env:
+          MATE_DIFF_CASES: 5000
+
+      - name: Documentação (cargo doc)
+        run: cargo doc --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
