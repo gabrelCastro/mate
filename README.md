@@ -21,7 +21,7 @@ Comentários e mensagens estão em português.
 ```bash
 cargo run -- meu.db                      # REPL interativo
 cargo run -- meu.db < examples/demo.sql  # executa um script
-cargo test                               # 51 testes (inclui o diferencial contra o SQLite)
+cargo test                               # 57 testes (inclui o diferencial contra o SQLite)
 cargo doc --open                         # a documentação navegável
 ```
 
@@ -51,6 +51,18 @@ mate> EXPLAIN SELECT nome FROM users WHERE id = 3;
 | `.stats`            | acertos/faltas no cache, leituras/escritas, quadros no WAL |
 | `SELECT * FROM mate_schema;` | o catálogo, que é uma tabela comum              |
 
+### Usando no Node.js
+
+A pasta [`mate-js/`](mate-js/README.md) transforma o Mate numa biblioteca
+para Node.js, no estilo do `better-sqlite3`:
+
+```js
+const { Database } = require("./mate-js");
+const db = new Database("app.db");
+db.run("INSERT INTO users VALUES (?, ?)", [1, "Ana"]);
+db.get("SELECT * FROM users WHERE id = ?", [1]); // { id: 1, nome: "Ana" }
+```
+
 ## SQL suportado
 
 ```sql
@@ -65,6 +77,9 @@ DELETE FROM t [WHERE ...]
 BEGIN | COMMIT | ROLLBACK
 EXPLAIN <comando>
 ```
+
+Valores podem vir como **parâmetros** `?`, passados à parte (veja
+[`sql/params.rs`](src/sql/params.rs)), o que protege contra SQL injection.
 
 - **Tipos:** `INTEGER`, `FLOAT`, `TEXT`, `BOOLEAN` (e sinônimos como `INT`,
   `VARCHAR(n)`, `REAL`, `BOOL`).
@@ -98,18 +113,19 @@ o caminho completo de uma consulta pelas camadas.
 | 14 | [`sql/lexer.rs`](src/sql/lexer.rs) | texto → tokens |
 | 15 | [`sql/ast.rs`](src/sql/ast.rs) | o SQL como estrutura de dados |
 | 16 | [`sql/parser.rs`](src/sql/parser.rs) | parser descendente recursivo; precedência |
-| 17 | [`execution/expr.rs`](src/execution/expr.rs) | binding e lógica de três valores |
-| 18 | [`planner/plan.rs`](src/planner/plan.rs) | o plano como árvore de operadores |
-| 19 | [`planner/planner.rs`](src/planner/planner.rs) | escopo, binding, agregação, escolha de índice |
-| 20 | [`execution/mod.rs`](src/execution/mod.rs) | **modelo Volcano** (`next()`) |
-| 21 | [`execution/scan.rs`](src/execution/scan.rs) | SeqScan × IndexScan |
-| 22 | [`execution/transform.rs`](src/execution/transform.rs) | Filter, Projection, Distinct, Limit |
-| 23 | [`execution/join.rs`](src/execution/join.rs) | nested loop join (INNER e LEFT) |
-| 24 | [`execution/sort.rs`](src/execution/sort.rs) | operador bloqueante |
-| 25 | [`execution/aggregate.rs`](src/execution/aggregate.rs) | GROUP BY com acumuladores |
-| 26 | [`execution/modify.rs`](src/execution/modify.rs) | manter índices em dia; problema do Halloween |
-| 27 | [`database.rs`](src/database.rs) | a fachada: autocommit, BEGIN/COMMIT/ROLLBACK |
-| 28 | [`main.rs`](src/main.rs) | o REPL |
+| 17 | [`sql/params.rs`](src/sql/params.rs) | parâmetros `?` e por que evitam SQL injection |
+| 18 | [`execution/expr.rs`](src/execution/expr.rs) | binding e lógica de três valores |
+| 19 | [`planner/plan.rs`](src/planner/plan.rs) | o plano como árvore de operadores |
+| 20 | [`planner/planner.rs`](src/planner/planner.rs) | escopo, binding, agregação, escolha de índice |
+| 21 | [`execution/mod.rs`](src/execution/mod.rs) | **modelo Volcano** (`next()`) |
+| 22 | [`execution/scan.rs`](src/execution/scan.rs) | SeqScan × IndexScan |
+| 23 | [`execution/transform.rs`](src/execution/transform.rs) | Filter, Projection, Distinct, Limit |
+| 24 | [`execution/join.rs`](src/execution/join.rs) | nested loop join (INNER e LEFT) |
+| 25 | [`execution/sort.rs`](src/execution/sort.rs) | operador bloqueante |
+| 26 | [`execution/aggregate.rs`](src/execution/aggregate.rs) | GROUP BY com acumuladores |
+| 27 | [`execution/modify.rs`](src/execution/modify.rs) | manter índices em dia; problema do Halloween |
+| 28 | [`database.rs`](src/database.rs) | a fachada: autocommit, BEGIN/COMMIT/ROLLBACK |
+| 29 | [`main.rs`](src/main.rs) | o REPL |
 
 Se preferir começar pelo "alto nível", leia `database.rs` primeiro para ver
 o fluxo inteiro e depois desça.

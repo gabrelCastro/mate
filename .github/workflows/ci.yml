@@ -47,3 +47,34 @@ jobs:
         run: cargo doc --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
+
+  js:
+    name: Biblioteca JS (mate-js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint do módulo nativo
+        run: cargo clippy -p mate-js
+
+      - name: Compilar mate.node
+        working-directory: mate-js
+        run: npm run build
+
+      - name: Testes JS
+        working-directory: mate-js
+        run: npm test
+
+      - name: Exemplo
+        working-directory: mate-js
+        run: node exemplo.js

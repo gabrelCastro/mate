@@ -14,3 +14,9 @@ description = "Um SGBD relacional didático, escrito em Rust para ser lido e est
 # precisar dele instalado no sistema.
 [dev-dependencies]
 rusqlite = { version = "0.32.1", features = ["bundled"] }
+
+# O repositório é um workspace: o banco (este pacote, na raiz) e a biblioteca
+# para JavaScript (mate-js/). Comandos rodados na raiz, como `cargo test`,
+# continuam valendo só para o banco.
+[workspace]
+members = ["mate-js"]

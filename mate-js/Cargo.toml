@@ -1,0 +1,18 @@
+[package]
+name = "mate-js"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Ligação do Mate com o Node.js (módulo nativo via N-API)."
+
+[lib]
+# Biblioteca dinâmica (.so/.dylib/.dll), que o Node carrega como mate.node.
+crate-type = ["cdylib"]
+
+[dependencies]
+mate = { path = ".." }
+napi = { version = "2.16", default-features = false, features = ["napi6"] }
+napi-derive = "2.16"
+
+[build-dependencies]
+napi-build = "2.1"
