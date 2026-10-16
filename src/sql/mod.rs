@@ -6,6 +6,7 @@
 
 pub mod ast;
 pub mod lexer;
+pub mod params;
 pub mod parser;
 
 pub use parser::{parse, parse_one};

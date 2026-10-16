@@ -50,6 +50,7 @@ pub fn parse(sql: &str) -> Result<Vec<Statement>> {
     let mut parser = Parser {
         tokens: tokenize(sql)?,
         pos: 0,
+        params: 0,
     };
     let mut statements = Vec::new();
     loop {
@@ -57,6 +58,7 @@ pub fn parse(sql: &str) -> Result<Vec<Statement>> {
         if parser.peek().is_none() {
             break;
         }
+        parser.params = 0; // cada comando numera seus `?` a partir do 0
         statements.push(parser.parse_statement()?);
         // Depois de um comando, só pode vir `;` ou o fim do texto.
         if parser.peek().is_some() && !parser.consume(&Token::Semicolon) {
@@ -78,6 +80,8 @@ pub fn parse_one(sql: &str) -> Result<Statement> {
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    /// Quantos `?` já apareceram no comando atual.
+    params: usize,
 }
 
 impl Parser {
@@ -639,6 +643,10 @@ impl Parser {
             Token::Keyword(Keyword::NULL) => Ok(Expr::Literal(Value::Null)),
             Token::Keyword(Keyword::TRUE) => Ok(Expr::Literal(Value::Boolean(true))),
             Token::Keyword(Keyword::FALSE) => Ok(Expr::Literal(Value::Boolean(false))),
+            Token::Param => {
+                self.params += 1;
+                Ok(Expr::Param(self.params - 1))
+            }
             Token::LeftParen => {
                 let expr = self.parse_expr()?;
                 self.expect(&Token::RightParen)?;

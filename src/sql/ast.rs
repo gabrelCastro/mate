@@ -152,6 +152,10 @@ pub struct Delete {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Literal(Value),
+    /// `?`: o parâmetro de número `n` (contando do 0, na ordem do texto).
+    /// Antes de planejar, `sql::params::bind_params` troca cada um pelo
+    /// valor informado.
+    Param(usize),
     /// `coluna` ou `tabela.coluna`
     Column {
         table: Option<String>,
@@ -271,6 +275,7 @@ impl fmt::Display for Expr {
                 let not = if *negated { "NOT " } else { "" };
                 write!(f, "{expr} {not}IN ({})", items.join(", "))
             }
+            Expr::Param(_) => f.write_str("?"),
             Expr::Function { name, args } if args.is_empty() => write!(f, "{name}(*)"),
             Expr::Function { name, args } => {
                 let items: Vec<String> = args.iter().map(|e| e.to_string()).collect();

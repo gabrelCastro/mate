@@ -159,6 +159,11 @@ fn bind_with(expr: &Expr, scope: &Scope, hook: Hook<'_>) -> Result<BoundExpr> {
     let mut bind = |e: &Expr| bind_with(e, scope, &mut *hook).map(Box::new);
     Ok(match expr {
         Expr::Literal(v) => BoundExpr::Literal(v.clone()),
+        Expr::Param(_) => {
+            return Err(DbError::Plan(
+                "parâmetro '?' sem valor (use uma das funções *_with_params)".into(),
+            ));
+        }
         Expr::Column { table, name } => scope.resolve(table.as_deref(), name)?,
         Expr::Unary { op, expr } => BoundExpr::Unary {
             op: *op,
@@ -207,7 +212,7 @@ fn contains_aggregate(expr: &Expr) -> bool {
         Expr::Function { name, args } => {
             AggFunc::from_name(name).is_some() || args.iter().any(contains_aggregate)
         }
-        Expr::Literal(_) | Expr::Column { .. } => false,
+        Expr::Literal(_) | Expr::Param(_) | Expr::Column { .. } => false,
         Expr::Unary { expr, .. } | Expr::IsNull { expr, .. } => contains_aggregate(expr),
         Expr::Binary { left, right, .. } => contains_aggregate(left) || contains_aggregate(right),
         Expr::InList { expr, list, .. } => contains_aggregate(expr) || list.iter().any(contains_aggregate),

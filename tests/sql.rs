@@ -3,7 +3,7 @@
 //! Cada teste também serve de exemplo do que o banco sabe fazer.
 
 use mate::test_util::TempDir;
-use mate::{Database, DbError, QueryResult};
+use mate::{Database, DbError, QueryResult, Value};
 
 /// Abre um banco novo num diretório temporário.
 fn open(name: &str) -> (TempDir, Database) {
@@ -328,6 +328,41 @@ fn muitas_linhas_indice_e_scan_concordam() {
         query(&mut db, "SELECT COUNT(*) FROM t WHERE grupo = 4"),
         vec!["0"]
     );
+}
+
+#[test]
+fn parametros() {
+    let (_dir, mut db) = open("params");
+    users(&mut db);
+    let malicioso = Value::Text("x' OR '1'='1".into());
+    db.query_with_params(
+        "INSERT INTO users VALUES (?, ?, ?, ?)",
+        &[
+            Value::Integer(10),
+            malicioso.clone(),
+            Value::Null,
+            Value::Text("Natal".into()),
+        ],
+    )
+    .unwrap();
+    // O texto malicioso é só um texto: acha exatamente a linha inserida.
+    let r = db
+        .query_with_params("SELECT id FROM users WHERE nome = ?", &[malicioso])
+        .unwrap();
+    assert_eq!(r.rows(), &[vec![Value::Integer(10)]]);
+    let r = db
+        .query_with_params(
+            "SELECT COUNT(*) FROM users WHERE idade > ? AND cidade = ?",
+            &[Value::Integer(20), Value::Text("Recife".into())],
+        )
+        .unwrap();
+    assert_eq!(r.rows(), &[vec![Value::Integer(2)]]);
+    // Número errado de valores, ou `?` sem valor nenhum, é erro.
+    assert!(
+        db.query_with_params("SELECT * FROM users WHERE id = ?", &[])
+            .is_err()
+    );
+    assert!(db.query("SELECT * FROM users WHERE id = ?").is_err());
 }
 
 #[test]

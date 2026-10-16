@@ -36,6 +36,8 @@ pub enum Token {
     Minus,
     Slash,
     Percent,
+    /// `?`: um parâmetro, cujo valor é passado à parte (veja `sql/params.rs`).
+    Param,
     /// `||`, concatenação de textos.
     Concat,
     Eq,
@@ -96,6 +98,7 @@ impl fmt::Display for Token {
             Token::Minus => f.write_str("-"),
             Token::Slash => f.write_str("/"),
             Token::Percent => f.write_str("%"),
+            Token::Param => f.write_str("?"),
             Token::Concat => f.write_str("||"),
             Token::Eq => f.write_str("="),
             Token::NotEq => f.write_str("!="),
@@ -213,6 +216,7 @@ pub fn tokenize(sql: &str) -> Result<Vec<Token>> {
             '-' => Token::Minus,
             '/' => Token::Slash,
             '%' => Token::Percent,
+            '?' => Token::Param,
             '=' => Token::Eq,
             '<' => Token::Lt,
             '>' => Token::Gt,

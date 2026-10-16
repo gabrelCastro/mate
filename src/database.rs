@@ -44,6 +44,7 @@ use crate::execution;
 use crate::planner::{Plan, plan_statement};
 use crate::result::QueryResult;
 use crate::sql::ast::Statement;
+use crate::sql::params::bind_params;
 use crate::sql::{parse, parse_one};
 use crate::storage::pager::{Pager, PagerStats};
 use crate::types::Value;
@@ -80,6 +81,24 @@ impl Database {
     /// Executa exatamente um comando.
     pub fn query(&mut self, sql: &str) -> Result<QueryResult> {
         self.execute_statement(&parse_one(sql)?)
+    }
+
+    /// Executa um comando com parâmetros: cada `?` no SQL recebe, na ordem,
+    /// um dos valores. É a forma segura de usar dados vindos de fora (veja
+    /// `sql/params.rs`).
+    ///
+    /// ```no_run
+    /// # use mate::{Database, Value};
+    /// # let mut db = Database::open("x.db").unwrap();
+    /// db.query_with_params(
+    ///     "INSERT INTO users VALUES (?, ?)",
+    ///     &[Value::Integer(1), Value::Text("Ana".into())],
+    /// ).unwrap();
+    /// ```
+    pub fn query_with_params(&mut self, sql: &str, params: &[Value]) -> Result<QueryResult> {
+        let mut stmt = parse_one(sql)?;
+        bind_params(&mut stmt, params)?;
+        self.execute_statement(&stmt)
     }
 
     pub fn execute_statement(&mut self, stmt: &Statement) -> Result<QueryResult> {
